@@ -1,0 +1,128 @@
+Demi Glidden
+Deduper psuedocode
+19 October 2020
+
+###########################
+## DEDUPER FROM SAM FILE ##
+##     PSUEDO CODE       ##
+###########################
+
+HIGH LEVEL SUMMARY:
+
+    This python script will take a SAM file for single-ended data and remove PCR duplicates. This script will remove the first duplicate found
+    and store it in a new file. Reads are considered duplicates if:
+        They are on the same chromosome
+        Have the same start position (soft-clipping accounted for)
+        Are going in the same direction (for stranded data)
+        Have the same Unique Molecular Index (UMI)
+
+    This program will produce 4 output files:
+        de-duped reads
+        duplicate reads
+        unmapped reads
+        text file summarizing how many reads went into the above file
+
+SCRIPT:
+
+Begin with argeparse to pass in SAM file and UMI file, as well as provide options for:
+    indicating whether the data are paired- or single-end (NOTE: this psuedocode is written for single-end data only)
+    what to name the output files (de-duped and duplicates)
+
+
+Read in files and assign them to variable names for use in the script:
+    SAM file = sam
+    UMI file = umis
+
+FUNCTIONS:
+
+    Check bitwise flag to see if read is mapped:
+        This function will check to see if the read is mapped or not, field 3 of the SAM file.
+        Return: TRUE/FALSE
+
+        example:
+        input: 0
+        output: TRUE
+
+    Check bitwise flag to see if read is fwd/rev:
+        This function will check to see if the read is forward or reverse, field 3 of SAM file.
+        Return: TRUE/FALSE
+
+        example: 
+        input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC	0	2	76814284	36	5S71M	*	0	0	TCCACCACAATCTTACCATCC
+        output: FALSE
+
+    Adjust start position for forward reads:
+        This function will subtract the leftmost softclipping from the alignment start position to 
+        get the "true" alignment start position, using the CIGAR string, feild 6 of the SAM file.
+        Return: positive integer
+
+        example: 
+        input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC	0	2	76814284	36	5S71M	*	0	0	TCCACCACAATCTTACCATCC
+        output: 76814279
+
+    Adjust start position for reverse reads:
+        This function will subtract the leftmost softclipping from the alignment start position to 
+        get the "true" alignment start position, using the CIGAR string, feild 6 of the SAM file.
+        It also accounts for gaps intron gaps (N) and deletions from the reference (D)
+        Return: positive integer
+
+        example: 
+        input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC	0	2	76814284	36	5S71M	*	0	0	TCCACCACAATCTTACCATCC
+        output: 76814350
+
+    Pull out the UMI: 
+        This function will extract the UMI from the header, field 1 of the SAM file.
+        Return: UMI as string
+
+        example:
+        input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC	0	2	76814284	36	5S71M	*	0	0	TCCACCACAATCTTACCATCC
+        output: CTGTTCAC
+
+    Get chromosome:
+        This function will extract the chromosome from the read, field 3 of the SAM file.
+        Return: chromosome as string
+
+        example:
+        input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC	0	2	76814284	36	5S71M	*	0	0	TCCACCACAATCTTACCATCC
+        output: 2
+
+ALGORITHM:
+    Parse file, and pull out all records on the first chromosome.
+        Pull out first record:
+        Use function to determine if it is mapped.
+        If it is not mapped, store it in a list of unmapped reads (add one to unmapped counter), and break loop and pull the next record.
+        If it is mapped:
+            Use function to pull UMIs: Store UMI as variable
+            Use function to pull chromosome: Store chromosome in variable
+            Use function to determine direction (fwd or rev): Store direction as variable
+            If forward read:
+                Check starting positions:
+                Use function to get cigar string and adjust starting position if necessary, only accounting for leftmost soft-clipping.
+                Store position as variable
+            If reverse read:
+                Check starting position:
+                Use function to get cigar string and adjust starting position (always necessary), only accounting for leftmost soft-clipping.
+                Store position as variable
+        Add all information stored as variables to a dictionary as a value, with UMI as a key.
+        Repeat for all records in this chromosome.
+
+    Start with first dictionary entry and compare to the rest:
+        If duplicate occures, first instance is kept in a list of deduped reads (add one to deduped counter), 
+        all others are store in duplicate list (add one to duplicate counter).
+
+    Repeat for remaining chromosomes.
+
+Open file and write list of deduped reads.
+
+Open file and write list of unmapped reads.
+
+Open file and write list of duplicate reads.
+
+Open file and write summary of counts.
+
+
+
+
+
+
+
